@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 /**
  * ------------------------------------------------------------------
@@ -59,15 +59,21 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 
 $database['main'] = array(
     'driver'	=> 'pgsql',
-    'hostname'	=> getenv('DB_HOST'),
-    'port'		=> getenv('DB_PORT'),
-    'username'	=> getenv('DB_USERNAME'),
-    'password'	=> getenv('DB_PASSWORD'),
-    'database'	=> getenv('DB_DATABASE'),
+    'hostname'	=> getenv('DB_HOST') ?: 'localhost',
+    'port'		=> getenv('DB_PORT') ?: '5432',
+    'username'	=> getenv('DB_USERNAME') ?: '',
+    'password'	=> getenv('DB_PASSWORD') ?: '',
+    'database'	=> getenv('DB_DATABASE') ?: '',
     'charset'	=> 'utf8',
     'dbprefix'	=> '',
     // Optional for SQLite
-    'path'      => ''
+    'path'      => '',
+    // PDO options for PostgreSQL SSL
+    'options'   => array(
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    )
 );
 
 ?>

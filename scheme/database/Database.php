@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 /**
  * ------------------------------------------------------------------
@@ -217,7 +217,8 @@ class Database {
                 $dsn = "mysql:host=$host;dbname=$dbname_value;charset=$charset;port=$port";
                 break;
             case 'pgsql':
-                $dsn = "pgsql:host=$host;port=$port;dbname=$dbname_value;user=$username;password=$password";
+                $sslmode = getenv('PGSSLMODE') ?: 'prefer';
+                $dsn = "pgsql:host=$host;port=$port;dbname=$dbname_value;sslmode=$sslmode";
                 break;
             case 'sqlite':
                 if (empty($path)) {
