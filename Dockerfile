@@ -1,4 +1,4 @@
-﻿FROM composer:2 AS build
+FROM composer:2 AS build
 
 WORKDIR /app
 
@@ -65,3 +65,5 @@ EOF
 EXPOSE 80
 
 CMD ["apache2-foreground"]
+
+# Cache bust: 20251201-235123
