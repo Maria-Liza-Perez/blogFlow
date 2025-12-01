@@ -1,0 +1,11 @@
+.git
+.gitignore
+*.md
+.env.example
+node_modules
+npm-debug.log
+vendor
+composer.lock
+runtime/logs/*
+runtime/cache/*
+.cursor
