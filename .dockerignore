@@ -8,4 +8,4 @@ vendor
 composer.lock
 runtime/logs/*
 runtime/cache/*
-.cursor
+.cursor# Force rebuild
