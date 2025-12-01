@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/env.php';
 define('PREVENT_DIRECT_ACCESS', TRUE);
 /**
  * ------------------------------------------------------------------
