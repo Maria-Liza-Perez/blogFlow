@@ -137,6 +137,9 @@ class Session {
 	        @ini_set('session.sid_length', $this->_get_sid_length());
 	    }
 
+	    // Load FileSessionHandler class
+	    require_once __DIR__ . '/Session/FileSessionHandler.php';
+
 	    // Set up session handler based on driver
 	    if ( ! empty($this->config['sess_driver']) AND $this->config['sess_driver'] == 'file' ) {
 			$handler = new FileSessionHandler();
