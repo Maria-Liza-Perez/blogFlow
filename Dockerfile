@@ -1,4 +1,4 @@
-FROM composer:2 AS build
+﻿FROM composer:2 AS build
 
 WORKDIR /app
 
@@ -42,27 +42,25 @@ RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf \
     && echo "ServerTokens Prod" >> /etc/apache2/apache2.conf \
     && echo "ServerSignature Off" >> /etc/apache2/apache2.conf
 
-# Set document root to the application root (not public)
+# Set document root
 ENV APACHE_DOCUMENT_ROOT=/var/www/html
 
-# Update Apache configuration to point to the correct document root
-RUN sed -ri -e 's!/var/www/html!/var/www/html!g' /etc/apache2/sites-available/*.conf \
-    && sed -ri -e 's!/var/www/!/var/www/html!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# Create Apache virtual host configuration using cat with heredoc
+RUN cat > /etc/apache2/sites-available/000-default.conf <<'EOF'
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
 
-# Create Apache virtual host configuration
-RUN echo '<VirtualHost *:80>\n\
-    ServerAdmin webmaster@localhost\n\
-    DocumentRoot /var/www/html\n\
-    \n\
-    <Directory /var/www/html>\n\
-        Options -Indexes +FollowSymLinks\n\
-        AllowOverride All\n\
-        Require all granted\n\
-    </Directory>\n\
-    \n\
-    ErrorLog \$\{APACHE_LOG_DIR\}/error.log\n\
-    CustomLog \$\{APACHE_LOG_DIR\}/access.log combined\n\
-</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
+    <Directory /var/www/html>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
 
 EXPOSE 80
 
