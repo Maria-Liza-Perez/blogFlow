@@ -218,7 +218,11 @@ class Database {
                 break;
             case 'pgsql':
                 $sslmode = getenv('PGSSLMODE') ?: 'prefer';
+                $channel_binding = getenv('PGCHANNELBINDING') ?: '';
                 $dsn = "pgsql:host=$host;port=$port;dbname=$dbname_value;sslmode=$sslmode";
+                if (!empty($channel_binding)) {
+                    $dsn .= ";channel_binding=$channel_binding";
+                }
                 break;
             case 'sqlite':
                 if (empty($path)) {
@@ -1371,3 +1375,4 @@ class Database {
         $this->db = null;
     }
 }
+
