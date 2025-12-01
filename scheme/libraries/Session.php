@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 /**
  * ------------------------------------------------------------------
@@ -136,6 +136,9 @@ class Session {
 	        @ini_set('session.use_only_cookies', 1);
 	        @ini_set('session.sid_length', $this->_get_sid_length());
 	    }
+
+	    // Set up session handler based on driver
+	    if ( ! empty($this->config['sess_driver']) AND $this->config['sess_driver'] == 'file' ) {
 			$handler = new FileSessionHandler();
 			session_set_save_handler($handler, TRUE);
 		} elseif ( ! empty($this->config['sess_driver']) AND $this->config['sess_driver'] == 'database' ) {
