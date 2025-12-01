@@ -153,31 +153,40 @@ class Session {
 			$this->config['cookie_name'] = $this->config['sess_cookie_name'] ?? ini_get('session.name');
 		}
 
-		ini_set('session.name', $this->config['cookie_name']);
+		// Only adjust PHP session ini settings if headers have not been sent yet
+		if (!headers_sent()) {
+			ini_set('session.name', $this->config['cookie_name']);
 
-		// Setup expiration times
-		$this->config['sess_expiration'] = (int)($this->config['sess_expiration'] ?? ini_get('session.gc_maxlifetime'));
-		ini_set('session.gc_maxlifetime', $this->config['sess_expiration']);
+			// Setup expiration times
+			$this->config['sess_expiration'] = (int)($this->config['sess_expiration'] ?? ini_get('session.gc_maxlifetime'));
+			ini_set('session.gc_maxlifetime', $this->config['sess_expiration']);
 
-		$this->config['cookie_expiration'] = isset($this->config['cookie_expiration'])
-			? (int)$this->config['cookie_expiration']
-			: (($this->config['sess_expire_on_close'] ?? FALSE) ? 0 : (int)$this->config['sess_expiration']);
+			$this->config['cookie_expiration'] = isset($this->config['cookie_expiration'])
+				? (int)$this->config['cookie_expiration']
+				: (($this->config['sess_expire_on_close'] ?? FALSE) ? 0 : (int)$this->config['sess_expiration']);
 
-		session_set_cookie_params([
-			'lifetime' => $this->config['cookie_expiration'],
-			'path'     => $this->config['cookie_path'] ?? '/',
-			'domain'   => $this->config['cookie_domain'] ?? '',
-			'secure'   => $this->config['cookie_secure'] ?? FALSE,
-			'httponly' => TRUE,
-			'samesite' => $this->config['cookie_samesite'] ?? 'Lax'
-		]);
+			session_set_cookie_params([
+				'lifetime' => $this->config['cookie_expiration'],
+				'path'     => $this->config['cookie_path'] ?? '/',
+				'domain'   => $this->config['cookie_domain'] ?? '',
+				'secure'   => $this->config['cookie_secure'] ?? FALSE,
+				'httponly' => TRUE,
+				'samesite' => $this->config['cookie_samesite'] ?? 'Lax'
+			]);
 
-		// Basic PHP session configuration
-		ini_set('session.use_trans_sid', 0);
-		ini_set('session.use_strict_mode', 1);
-		ini_set('session.use_cookies', 1);
-		ini_set('session.use_only_cookies', 1);
-		ini_set('session.sid_length', $this->_get_sid_length());
+			// Basic PHP session configuration
+			ini_set('session.use_trans_sid', 0);
+			ini_set('session.use_strict_mode', 1);
+			ini_set('session.use_cookies', 1);
+			ini_set('session.use_only_cookies', 1);
+			ini_set('session.sid_length', $this->_get_sid_length());
+		} else {
+			// Fallbacks when headers are already sent: avoid changing ini settings
+			$this->config['sess_expiration'] = (int)($this->config['sess_expiration'] ?? ini_get('session.gc_maxlifetime'));
+			$this->config['cookie_expiration'] = isset($this->config['cookie_expiration'])
+				? (int)$this->config['cookie_expiration']
+				: (($this->config['sess_expire_on_close'] ?? FALSE) ? 0 : (int)$this->config['sess_expiration']);
+		}
 
 		/**
 		 * ----------------------------------------------------------------
@@ -196,7 +205,11 @@ class Session {
 		 * ----------------------------------------------------------------
 		 */
 		$existing_session = isset($_COOKIE[$this->config['cookie_name']]) && !empty($_COOKIE[$this->config['cookie_name']]);
-		session_start();
+
+		// Start session only if headers are not yet sent
+		if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+			session_start();
+		}
 
 		/**
 		 * ----------------------------------------------------------------
