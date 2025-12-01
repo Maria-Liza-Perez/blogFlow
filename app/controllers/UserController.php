@@ -240,7 +240,7 @@ protected $allowedFonts = [
             if (isset($this->email) && is_object($this->email)) {
                 $email_instance = $this->email;
             } else {
-                $LAVA =& lava_instance();
+                $LAVA = lava_instance();
                 if (isset($LAVA->properties['email']) && is_object($LAVA->properties['email'])) {
                     $email_instance = $LAVA->properties['email'];
                 }
