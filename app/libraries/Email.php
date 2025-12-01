@@ -1,8 +1,9 @@
 <?php
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception as PHPMailerException;
+use Symfony\Component\Mailer\Mailer;
+use Symfony\Component\Mailer\Transport;
+use Symfony\Component\Mime\Email as SymfonyEmail;
 
 if (!class_exists('Email')) {
 
@@ -17,62 +18,37 @@ class Email {
     private $emailContent = '';
     private $emailType = 'plain';
     private $last_error = '';
-    
-    // SMTP Configuration - Set these values here
-    private $SMTP_HOST   = 'smtp.gmail.com';
-    private $SMTP_PORT   = 587;
-    private $SMTP_USER   = 'rochelleuchi38@gmail.com';       
-    private $SMTP_PASS   = 'bikbmgtgojetmwgm';
-    private $SMTP_SECURE = 'tls';                        
+
+    private $_lava;
 
     public function __construct()
     {
-        // autoload PHPMailer (composer) or fallback to library copy
-        if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
-            require_once __DIR__ . '/../../vendor/autoload.php';
-        } else {
-            if (file_exists(__DIR__ . '/PHPMailer/src/Exception.php')) {
-                require_once __DIR__ . '/PHPMailer/src/Exception.php';
-                require_once __DIR__ . '/PHPMailer/src/PHPMailer.php';
-                require_once __DIR__ . '/PHPMailer/src/SMTP.php';
-            } else {
-                throw new \Exception('PHPMailer not found. Install via Composer or place PHPMailer in app/libraries/PHPMailer');
-            }
+        if (!class_exists(Mailer::class)) {
+            throw new \RuntimeException('Symfony Mailer is not installed. Run composer install.');
         }
 
-        $this->mailer = new PHPMailer(true);
+        $dsn = getenv('MAILER_DSN');
+        if (!$dsn) {
+            $host   = getenv('SMTP_HOST')   ?: 'smtp.gmail.com';
+            $port   = getenv('SMTP_PORT')   ?: '587';
+            $user   = getenv('SMTP_USER')   ?: '';
+            $pass   = getenv('SMTP_PASS')   ?: '';
+            $secure = getenv('SMTP_SECURE') ?: 'tls';
 
-        // Try to get SMTP settings from globals first (for backward compatibility)
-        global $SMTP_HOST, $SMTP_PORT, $SMTP_USER, $SMTP_PASS, $SMTP_SECURE;
-        
-        // Use global values if they exist, otherwise use class properties
-        $smtp_host = !empty($SMTP_HOST) ? $SMTP_HOST : $this->SMTP_HOST;
-        $smtp_port = !empty($SMTP_PORT) ? $SMTP_PORT : $this->SMTP_PORT;
-        $smtp_user = !empty($SMTP_USER) ? $SMTP_USER : $this->SMTP_USER;
-        $smtp_pass = !empty($SMTP_PASS) ? $SMTP_PASS : $this->SMTP_PASS;
-        $smtp_secure = !empty($SMTP_SECURE) ? $SMTP_SECURE : $this->SMTP_SECURE;
-
-        // Always configure SMTP if we have a host
-        if (!empty($smtp_host)) {
-            $this->mailer->isSMTP();
-            $this->mailer->Host       = $smtp_host;
-            $this->mailer->Port       = $smtp_port ?: 587;
-            $this->mailer->SMTPAuth   = true;
-            $this->mailer->Username   = $smtp_user;
-            $this->mailer->Password   = $smtp_pass;
-            if (!empty($smtp_secure)) {
-                $this->mailer->SMTPSecure = $smtp_secure === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
-            }
-            $this->mailer->SMTPAutoTLS = true;
-            // Enable verbose debug output (can be disabled in production)
-            // $this->mailer->SMTPDebug = 2; // Uncomment for debugging
-        } else {
-            // If no SMTP host is configured, this will fail
-            // So we'll throw an error instead of using mail()
-            throw new \Exception('SMTP configuration is missing. Please configure SMTP settings in Email.php');
+            $dsn = sprintf(
+                'smtp://%s:%s@%s:%s?encryption=%s',
+                rawurlencode($user),
+                rawurlencode($pass),
+                $host,
+                $port,
+                $secure
+            );
         }
 
-        $this->mailer->CharSet = (function_exists('config_item') ? config_item('charset') : null) ?: 'UTF-8';
+        $transport = Transport::fromDsn($dsn);
+        $this->mailer = new Mailer($transport);
+
+        $this->_lava = function_exists('lava_instance') ? lava_instance() : null;
     }
 
     private function valid_email($email)
@@ -81,7 +57,7 @@ class Email {
         if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return true;
         }
-        throw new \Exception('Invalid email address');
+        throw new \InvalidArgumentException('Invalid email address');
     }
 
     private function filter_string($string)
@@ -109,7 +85,7 @@ class Email {
                 }
                 return true;
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->last_error = 'Invalid recipient email: ' . $e->getMessage();
             return false;
         }
@@ -130,12 +106,11 @@ class Email {
             $this->subject = $this->filter_string($subject);
             return $this->subject;
         }
-        throw new \Exception("Email subject is empty");
+        throw new \InvalidArgumentException("Email subject is empty");
     }
 
     public function email_content($emailContent, $type = 'plain')
     {
-        // Only apply wordwrap to plain text, not HTML
         if ($type !== 'html') {
             $emailContent = wordwrap($emailContent, 70, "\n");
         }
@@ -150,81 +125,97 @@ class Email {
                 $this->attach_files[] = $attach_file;
             }
         } else {
-            throw new \Exception("No file attachment was specified");
+            throw new \InvalidArgumentException("No file attachment was specified");
+        }
+    }
+
+    private function log_email($to, $status, $errorMessage = null)
+    {
+        if (!$this->_lava || !isset($this->_lava->db)) {
+            return;
+        }
+
+        $preview = strip_tags((string)$this->emailContent);
+        if (strlen($preview) > 255) {
+            $preview = substr($preview, 0, 252) . '...';
+        }
+
+        try {
+            $this->_lava->db->table('email_logs')->insert([
+                'to_email'      => $to,
+                'subject'       => (string)$this->subject,
+                'body_preview'  => $preview,
+                'status'        => $status,
+                'error_message' => $errorMessage,
+                'sent_at'       => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Failed to insert email_logs: ' . $e->getMessage());
         }
     }
 
     public function send()
     {
-        // Reset error
         $this->last_error = '';
-        
+
         if (!is_array($this->recipients) || count($this->recipients) < 1) {
             $this->last_error = 'No recipient email address specified';
             return false;
         }
 
-        // Validate subject
         if (empty($this->subject)) {
             $this->last_error = 'Email subject is empty';
             return false;
         }
 
+        $email = (new SymfonyEmail());
+
         try {
             if (!empty($this->sender)) {
-                $this->mailer->setFrom($this->sender, $this->sender_name ?: null);
+                $email->from($this->sender_name ? "{$this->sender_name} <{$this->sender}>" : $this->sender);
             } else {
-                // Use class property for SMTP user
-                if (!empty($this->SMTP_USER)) {
-                    $this->mailer->setFrom($this->SMTP_USER);
-                } else {
+                $from = getenv('SMTP_USER') ?: null;
+                if (!$from) {
                     $this->last_error = 'No sender email address configured';
                     return false;
                 }
-            }
-
-            if (!empty($this->reply_to)) {
-                $this->mailer->addReplyTo($this->reply_to);
+                $email->from($from);
             }
 
             foreach ($this->recipients as $r) {
-                $this->mailer->addAddress($r);
+                $email->addTo($r);
             }
 
-            $this->mailer->Subject = $this->subject;
+            if (!empty($this->reply_to)) {
+                $email->replyTo($this->reply_to);
+            }
+
+            $email->subject($this->subject);
+
             if ($this->emailType === 'html') {
-                $this->mailer->isHTML(true);
-                $this->mailer->Body = $this->emailContent;
-                $this->mailer->AltBody = strip_tags($this->emailContent);
+                $email->html($this->emailContent);
+                $email->text(strip_tags($this->emailContent));
             } else {
-                $this->mailer->isHTML(false);
-                $this->mailer->Body = $this->emailContent;
+                $email->text($this->emailContent);
             }
 
             foreach ($this->attach_files as $file) {
                 if (file_exists($file)) {
-                    $this->mailer->addAttachment($file);
+                    $email->attachFromPath($file);
                 }
             }
 
-            $result = $this->mailer->send();
-            if (!$result) {
-                $this->last_error = $this->mailer->ErrorInfo ?: 'Unknown error occurred while sending email';
-            }
-            return $result;
-        } catch (PHPMailerException $e) {
-            $this->last_error = $e->getMessage() . ' (PHPMailer Error)';
-            return false;
-        } catch (\Exception $e) {
-            $this->last_error = $e->getMessage() . ' (General Error)';
+            $this->mailer->send($email);
+
+            $this->log_email($this->recipients[0], 'success', null);
+            return true;
+        } catch (\Throwable $e) {
+            $this->last_error = $e->getMessage();
+            $this->log_email($this->recipients[0] ?? null, 'failure', $e->getMessage());
             return false;
         }
     }
 
-    /**
-     * Get the last error message
-     * @return string
-     */
     public function get_error()
     {
         return $this->last_error;

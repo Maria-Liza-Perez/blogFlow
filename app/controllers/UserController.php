@@ -18,10 +18,6 @@ public function __construct()
     require_once __DIR__ . '/../helpers/location.php';
 
     // Load user data and notifications if user is logged in
-    if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-        session_start();
-    }
-
     if (isset($_SESSION['user'])) {
         $this->call->model('UsersModel');
         $user_id = $_SESSION['user']['id'];
@@ -58,9 +54,8 @@ protected $allowedFonts = [
      */
     private function ensureSession()
     {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-        session_start();
-    }
+        // Session is managed by LavaLust Session library (auto-loaded).
+        // This method is kept for backward compatibility.
     }
 
     /**
@@ -395,13 +390,6 @@ public function logout()
 
     // Destroy LavaLust session
     $this->auth->logout();
-
-    // Destroy native PHP session
-    if (isset($_SESSION['user'])) {
-        unset($_SESSION['user']);
-    }
-
-    session_destroy();  // VERY IMPORTANT
 
     redirect('/');    // ← show login page
 }
