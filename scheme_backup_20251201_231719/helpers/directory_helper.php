@@ -34,92 +34,68 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
  * @license https://opensource.org/licenses/MIT MIT License
  */
 
-/**
-* ------------------------------------------------------
-*  Class Controller
-* ------------------------------------------------------
- */
-class Controller
+if ( ! function_exists('directory_map'))
 {
 	/**
-	 * Controller Instance
+	 * Get Directory and Files Path
 	 *
-	 * @var object
+	 * @param string $source_dir
+	 * @param integer $directory_depth
+	 * @param boolean $hidden
+	 * @return array
 	 */
-	private static $instance;
-	/**
-	 * Load class
-	 *
-	 * @var object
-	 */
-	public $call;
-
-	/**
-	 * Dynamic Properties using __set and __get
-	 *
-	 * @var array
-	 */
-	public $properties = [];
-
-	/**
-	 * Set Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @param string $val
-	 */
-	public function __set($prop, $val) {
-		$this->properties[$prop] = $val;
-	}
-
-	/**
-	 * Get Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @return void
-	 */
-	public function __get($prop) {
-		if (array_key_exists($prop, $this->properties)) {
-			return $this->properties[$prop];
-		} else {
-			throw new Exception("Property $prop does not exist");
-		}
-	}
-
-	/**
-	 * Constructor
-	 */
-	public function __construct()
+	function directory_map($source_dir, $directory_depth = 0, $hidden = FALSE)
 	{
-		$this->before_action();
-
-		self::$instance = $this;
-
-		foreach (loaded_class() as $var => $class)
+		if ($fp = @opendir($source_dir))
 		{
-			$this->properties[$var] = load_class($class);
+			$filedata	= array();
+			$new_depth	= $directory_depth - 1;
+			$source_dir	= rtrim($source_dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+			while (FALSE !== ($file = readdir($fp)))
+			{
+				if ($file === '.' OR $file === '..' OR ($hidden === FALSE && $file[0] === '.'))
+				{
+					continue;
+				}
+
+				is_dir($source_dir.$file) && $file .= DIRECTORY_SEPARATOR;
+
+				if (($directory_depth < 1 OR $new_depth > 0) && is_dir($source_dir.$file))
+				{
+					$filedata[$file] = directory_map($source_dir.$file, $new_depth, $hidden);
+				}
+				else
+				{
+					$filedata[] = $file;
+				}
+			}
+
+			closedir($fp);
+			return $filedata;
 		}
 
-		$this->call = load_class('invoker', 'kernel');
-		$this->call->initialize();
+		return FALSE;
 	}
-
-	/**
-     * Called before the controller action.
-     * Used to perform logic that needs to happen before each controller action.
-     *
-     */
-    public function before_action(){}
-
-	/**
-	 * Instance of controller
-	 *
-	 * @return object
-	 */
-	public static function instance()
-	{
-		return self::$instance;
-	}
-
 }
 
-?>
+if ( ! function_exists('is_dir_usable'))
+	{
+		/**
+		 * Check if directory is usable
+		 *
+		 * @param  string $dir
+		 * @param  string $chmod
+		 * @return boolean
+		 */
+		function is_dir_usable($dir, $chmod = '0744')
+		{
+			// If it doesn't exist, and can't be made
+			if(! is_dir($dir) AND ! mkdir($dir, $chmod, TRUE)) return FALSE;
+
+			// If it isn't writable, and can't be made writable
+			if(! is_writable($dir) AND !chmod($dir, $chmod)) return FALSE;
+
+			return TRUE;
+		}
+	}

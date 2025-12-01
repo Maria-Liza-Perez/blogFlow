@@ -33,93 +33,95 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
  * @link https://github.com/ronmarasigan/LavaLust
  * @license https://opensource.org/licenses/MIT MIT License
  */
+/*
 
 /**
 * ------------------------------------------------------
-*  Class Controller
+*  Class Error
 * ------------------------------------------------------
  */
-class Controller
+class Errors
 {
 	/**
-	 * Controller Instance
+	 * Show 404 Page Not Found
 	 *
-	 * @var object
-	 */
-	private static $instance;
-	/**
-	 * Load class
-	 *
-	 * @var object
-	 */
-	public $call;
-
-	/**
-	 * Dynamic Properties using __set and __get
-	 *
-	 * @var array
-	 */
-	public $properties = [];
-
-	/**
-	 * Set Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @param string $val
-	 */
-	public function __set($prop, $val) {
-		$this->properties[$prop] = $val;
-	}
-
-	/**
-	 * Get Dynamic Properties
-	 *
-	 * @param string $prop
+	 * @param string $heading
+	 * @param string $message
+	 * @param string $page
 	 * @return void
 	 */
-	public function __get($prop) {
-		if (array_key_exists($prop, $this->properties)) {
-			return $this->properties[$prop];
-		} else {
-			throw new Exception("Property $prop does not exist");
-		}
-	}
-
-	/**
-	 * Constructor
-	 */
-	public function __construct()
+	public function show_404($heading, $message, $template)
 	{
-		$this->before_action();
-
-		self::$instance = $this;
-
-		foreach (loaded_class() as $var => $class)
-		{
-			$this->properties[$var] = load_class($class);
-		}
-
-		$this->call = load_class('invoker', 'kernel');
-		$this->call->initialize();
+		$template = ! empty($template) ? $template : 'error_404';
+		$heading =  ! empty($heading) ? $heading : '404 Page Not Found';
+		$message =  ! empty($message) ? $message : 'The page you requested was not found.';
+		$this->show_error($heading, $message, $template, 404);
 	}
 
 	/**
-     * Called before the controller action.
-     * Used to perform logic that needs to happen before each controller action.
-     *
-     */
-    public function before_action(){}
-
-	/**
-	 * Instance of controller
+	 * Show error for debugging
 	 *
-	 * @return object
+	 * @param string $heading
+	 * @param string $message
+	 * @param string $template
+	 * @param integer code
+	 * @return void
 	 */
-	public static function instance()
+	public function show_error($heading, $message, $template, $code = 500)
 	{
-		return self::$instance;
+		$template_path = config_item('error_view_path');
+		if (empty($template_path))
+		{
+			$template_path = APP_DIR . 'views/errors/';
+		}
+
+		http_response_code($code);
+		require_once($template_path.$template.'.php');
+		exit();
+	}
+
+	/**
+	 * Show Exception error for debugging
+	 *
+	 * @param object $exception
+	 * @return void
+	 */
+	public function show_exception($exception)
+	{
+		$template_path = config_item('error_view_path');
+		if (empty($template_path))
+		{
+			$template_path = APP_DIR.'views/errors/';
+		}
+
+		$message = $exception->getMessage();
+		if (empty($message))
+		{
+			$message = '(null)';
+		}
+
+		require_once($template_path.'error_exception.php');
+		exit();
+	}
+
+	/**
+	 * Show PHP error for debugging
+	 *
+	 * @param string $severity
+	 * @param string $message
+	 * @param string $filepath
+	 * @param string $line
+	 * @return void
+	 */
+	public function show_php_error($severity, $message, $filepath, $line)
+	{
+		$template_path = config_item('error_view_path');
+		if (empty($template_path))
+		{
+			$template_path = APP_DIR.'views/errors/';
+		}
+		require_once($template_path.'error_php.php');
+		die();
 	}
 
 }
-
-?>

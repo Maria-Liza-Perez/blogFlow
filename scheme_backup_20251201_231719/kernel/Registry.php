@@ -6,9 +6,9 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
  * ------------------------------------------------------------------
  *
  * MIT License
- *
+ * 
  * Copyright (c) 2020 Ronald M. Marasigan
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -36,90 +36,78 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 
 /**
 * ------------------------------------------------------
-*  Class Controller
+*  Class Performance
 * ------------------------------------------------------
  */
-class Controller
+class Registry
 {
-	/**
-	 * Controller Instance
-	 *
-	 * @var object
-	 */
-	private static $instance;
-	/**
-	 * Load class
-	 *
-	 * @var object
-	 */
-	public $call;
-
-	/**
-	 * Dynamic Properties using __set and __get
-	 *
-	 * @var array
-	 */
-	public $properties = [];
-
-	/**
-	 * Set Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @param string $val
-	 */
-	public function __set($prop, $val) {
-		$this->properties[$prop] = $val;
-	}
-
-	/**
-	 * Get Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @return void
-	 */
-	public function __get($prop) {
-		if (array_key_exists($prop, $this->properties)) {
-			return $this->properties[$prop];
-		} else {
-			throw new Exception("Property $prop does not exist");
-		}
-	}
-
-	/**
-	 * Constructor
-	 */
-	public function __construct()
-	{
-		$this->before_action();
-
-		self::$instance = $this;
-
-		foreach (loaded_class() as $var => $class)
-		{
-			$this->properties[$var] = load_class($class);
-		}
-
-		$this->call = load_class('invoker', 'kernel');
-		$this->call->initialize();
-	}
-
-	/**
-     * Called before the controller action.
-     * Used to perform logic that needs to happen before each controller action.
+    /**
+     * Class name arrays
      *
+     * @var array
      */
-    public function before_action(){}
+	private $_classes = array();
 
-	/**
-	 * Instance of controller
-	 *
-	 * @return object
-	 */
-	public static function instance()
-	{
-		return self::$instance;
+    /**
+     * Instance
+     *
+     * @var object
+     */
+	private static $_instance;
+	
+    /**
+     * Get Instance of Registry
+     */
+    public static function instance()
+    {
+    	if(!isset(self::$_instance))
+        {
+            self::$_instance = new self();
+        }
+        return self::$_instance;
+    }
+
+    /**
+     * Get
+     * @param string $key
+     * @return mixed
+     */
+    protected function get($key)
+    {
+    	
+        if(isset($this->_classes[$key]))
+        {	
+            return $this->_classes[$key];
+        }
+        return NULL;
+    }
+
+    /**
+     * @param string $key
+     * @param object $object
+     * @return void
+     */
+    protected function set($key, $object)
+    {
+        $this->_classes[$key] = $object;
+    }
+
+    /**
+     * @param string $key
+     * @return object
+     */
+    static function get_object($key)
+    {
+		return self::instance()->get($key);
 	}
 
+    /**
+     * @param string $key
+     * @param object $object
+     * @return object
+     */
+	static function store_object($key, $object)
+	{
+		return self::instance()->set($key, $object);
+	}
 }
-
-?>

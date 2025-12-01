@@ -29,97 +29,50 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
  *
  * @package LavaLust
  * @author Ronald M. Marasigan <ronald.marasigan@yahoo.com>
- * @since Version 1
+ * @since Version 4
  * @link https://github.com/ronmarasigan/LavaLust
  * @license https://opensource.org/licenses/MIT MIT License
  */
 
 /**
 * ------------------------------------------------------
-*  Class Controller
+*  Class Logger
 * ------------------------------------------------------
  */
-class Controller
-{
-	/**
-	 * Controller Instance
-	 *
-	 * @var object
-	 */
-	private static $instance;
-	/**
-	 * Load class
-	 *
-	 * @var object
-	 */
-	public $call;
+class Logger {
 
-	/**
-	 * Dynamic Properties using __set and __get
-	 *
-	 * @var array
-	 */
-	public $properties = [];
-
-	/**
-	 * Set Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @param string $val
-	 */
-	public function __set($prop, $val) {
-		$this->properties[$prop] = $val;
-	}
-
-	/**
-	 * Get Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @return void
-	 */
-	public function __get($prop) {
-		if (array_key_exists($prop, $this->properties)) {
-			return $this->properties[$prop];
-		} else {
-			throw new Exception("Property $prop does not exist");
-		}
-	}
-
-	/**
-	 * Constructor
-	 */
-	public function __construct()
-	{
-		$this->before_action();
-
-		self::$instance = $this;
-
-		foreach (loaded_class() as $var => $class)
-		{
-			$this->properties[$var] = load_class($class);
-		}
-
-		$this->call = load_class('invoker', 'kernel');
-		$this->call->initialize();
-	}
-
-	/**
-     * Called before the controller action.
-     * Used to perform logic that needs to happen before each controller action.
+    /**
+     * log error etc
      *
+     * @param string $type | debug, error
+     * @param string $header
+     * @param string $message
+     * @param string $filename
+     * @param string $linenum
+     * @return void
      */
-    public function before_action(){}
+    public function log($type = '', $header = '', $message = '', $filename = '', $linenum = '')
+    {
+        $logfile = config_item('log_dir').'log.txt';
+        if (! file_exists($logfile)) { 
+            mkdir(config_item('log_dir'), 0777, true);
+            $fh = fopen($logfile, 'w');
+            fclose($fh);
+        } 
 
-	/**
-	 * Instance of controller
-	 *
-	 * @return object
-	 */
-	public static function instance()
-	{
-		return self::$instance;
-	}
+        $date = date("d/m/Y G:i:s");
 
-}
-
-?>
+        if($type == 'debug' && (config_item('log_threshold') == 2 || config_item('log_threshold') == 3))
+        {
+            $err = "Date: ".$date."\n"."Debug Message: ".$header;
+            $err .= "\n------------------------------------------------------------------\n\n";
+            error_log($err, 3, $logfile);
+        } else if($type == 'error' && (config_item('log_threshold') == 1 || config_item('log_threshold') == 3))
+        {
+            $message = is_array($message)? implode("\n", $message): $message;
+            $err = "Date: ".$date."\n"."Exception Class: ".$header."\n"."Error Message: ".$message."\n"."Filename: ".$filename."\n"."Line Number: ".$linenum;
+            $err .= "\n------------------------------------------------------------------\n\n";
+            error_log($err, 3, $logfile);
+        }  
+    }
+ }

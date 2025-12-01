@@ -34,92 +34,50 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
  * @license https://opensource.org/licenses/MIT MIT License
  */
 
-/**
-* ------------------------------------------------------
-*  Class Controller
-* ------------------------------------------------------
- */
-class Controller
+if ( ! function_exists('set_cookie'))
 {
 	/**
-	 * Controller Instance
+	 * Setting up cookie in your application
 	 *
-	 * @var object
-	 */
-	private static $instance;
-	/**
-	 * Load class
-	 *
-	 * @var object
-	 */
-	public $call;
-
-	/**
-	 * Dynamic Properties using __set and __get
-	 *
-	 * @var array
-	 */
-	public $properties = [];
-
-	/**
-	 * Set Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @param string $val
-	 */
-	public function __set($prop, $val) {
-		$this->properties[$prop] = $val;
-	}
-
-	/**
-	 * Get Dynamic Properties
-	 *
-	 * @param string $prop
+	 * @param string $name the cookie name
+	 * @param string $value the cookie value
+	 * @param array $options other cookie options
 	 * @return void
 	 */
-	public function __get($prop) {
-		if (array_key_exists($prop, $this->properties)) {
-			return $this->properties[$prop];
-		} else {
-			throw new Exception("Property $prop does not exist");
-		}
-	}
-
-	/**
-	 * Constructor
-	 */
-	public function __construct()
+	function set_cookie($name, $value = '', $expiration = 0, $options = array())
 	{
-		$this->before_action();
-
-		self::$instance = $this;
-
-		foreach (loaded_class() as $var => $class)
-		{
-			$this->properties[$var] = load_class($class);
-		}
-
-		$this->call = load_class('invoker', 'kernel');
-		$this->call->initialize();
+		lava_instance()->io->set_cookie($name, $value, $expiration, $options);
 	}
-
-	/**
-     * Called before the controller action.
-     * Used to perform logic that needs to happen before each controller action.
-     *
-     */
-    public function before_action(){}
-
-	/**
-	 * Instance of controller
-	 *
-	 * @return object
-	 */
-	public static function instance()
-	{
-		return self::$instance;
-	}
-
 }
 
-?>
+if ( ! function_exists('get_cookie'))
+{
+	/**
+	 * Fetch an item from the COOKIE array
+	 *
+	 * @param  string  $name name of the cookie
+	 * @return mixed
+	 */
+	function get_cookie($name)
+	{
+		$prefix = isset($_COOKIE[$name]) ? '' : config_item('cookie_prefix');
+		return lava_instance()->io->cookie($prefix.$name);
+	}
+}
+
+if ( ! function_exists('delete_cookie'))
+{
+	/**
+	 * Delete a cookie
+	 *
+	 * @param  string $name
+	 * @param  string $domain the cookie domain
+	 * @param  string $path   the cookie path
+	 * @param  string $prefix the cookie prefix
+	 * @return void
+	 */
+	function delete_cookie($name, $domain = '', $path = '/', $prefix = '')
+	{
+		lava_instance()->io->set_cookie($name, '', '', array('domain' => $domain, 'path' => $path, 'prefix' => $prefix));
+	}
+}

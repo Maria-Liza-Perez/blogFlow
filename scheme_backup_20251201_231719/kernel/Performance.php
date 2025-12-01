@@ -36,90 +36,63 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 
 /**
 * ------------------------------------------------------
-*  Class Controller
+*  Class Performance
 * ------------------------------------------------------
  */
-class Controller
-{
-	/**
-	 * Controller Instance
-	 *
-	 * @var object
-	 */
-	private static $instance;
-	/**
-	 * Load class
-	 *
-	 * @var object
-	 */
-	public $call;
+class Performance {
+	public function __construct() {
 
+    }
 	/**
-	 * Dynamic Properties using __set and __get
+	 * Holds the mark points
 	 *
 	 * @var array
 	 */
-	public $properties = [];
+	public $tags = array();
 
 	/**
-	 * Set Dynamic Properties
+	 * Start Marking Points
 	 *
-	 * @param string $prop
-	 * @param string $val
-	 */
-	public function __set($prop, $val) {
-		$this->properties[$prop] = $val;
-	}
-
-	/**
-	 * Get Dynamic Properties
-	 *
-	 * @param string $prop
+	 * @param  string $point marker
 	 * @return void
 	 */
-	public function __get($prop) {
-		if (array_key_exists($prop, $this->properties)) {
-			return $this->properties[$prop];
-		} else {
-			throw new Exception("Property $prop does not exist");
-		}
-	}
-
-	/**
-	 * Constructor
-	 */
-	public function __construct()
+	public function start($point)
 	{
-		$this->before_action();
-
-		self::$instance = $this;
-
-		foreach (loaded_class() as $var => $class)
-		{
-			$this->properties[$var] = load_class($class);
-		}
-
-		$this->call = load_class('invoker', 'kernel');
-		$this->call->initialize();
+		$this->tags[$point]['start'] = microtime(true);
 	}
 
 	/**
-     * Called before the controller action.
-     * Used to perform logic that needs to happen before each controller action.
-     *
-     */
-    public function before_action(){}
-
-	/**
-	 * Instance of controller
+	 * End Marking Point
 	 *
-	 * @return object
+	 * @param string $point
+	 * @return void
 	 */
-	public static function instance()
-	{
-		return self::$instance;
+	public function stop($point) {
+		$this->tags[$point]['stop'] = microtime(true);
 	}
+
+	/**
+	 * Elapsed Time
+	 *
+	 * @param  string  $point    marker
+	 * @param  integer $decimals
+	 * @return float
+	 */
+	public function elapsed_time($point, $decimals = 4)
+	{
+		$split_time = $this->tags[$point]['stop'] - $this->tags[$point]['start'];
+		return number_format($split_time, $decimals);
+	}
+
+	/**
+	 * Memory Usage
+	 *
+	 * @return float
+	 */
+	public function memory_usage()
+    {
+        return round(memory_get_usage() / 1024 / 1024, 2).'MB';
+    }
 
 }
-
 ?>

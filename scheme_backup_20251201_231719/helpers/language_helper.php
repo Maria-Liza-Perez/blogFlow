@@ -34,92 +34,39 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
  * @license https://opensource.org/licenses/MIT MIT License
  */
 
-/**
-* ------------------------------------------------------
-*  Class Controller
-* ------------------------------------------------------
- */
-class Controller
+if ( ! function_exists('lang'))
 {
 	/**
-	 * Controller Instance
+	 * Use to translate text on you app in different languages
 	 *
-	 * @var object
+	 * @param string $key
+	 * @param array $params
+	 * @param boolean $escape
+	 * @return string
 	 */
-	private static $instance;
-	/**
-	 * Load class
-	 *
-	 * @var object
-	 */
-	public $call;
-
-	/**
-	 * Dynamic Properties using __set and __get
-	 *
-	 * @var array
-	 */
-	public $properties = [];
-
-	/**
-	 * Set Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @param string $val
-	 */
-	public function __set($prop, $val) {
-		$this->properties[$prop] = $val;
-	}
-
-	/**
-	 * Get Dynamic Properties
-	 *
-	 * @param string $prop
-	 * @return void
-	 */
-	public function __get($prop) {
-		if (array_key_exists($prop, $this->properties)) {
-			return $this->properties[$prop];
-		} else {
-			throw new Exception("Property $prop does not exist");
-		}
-	}
-
-	/**
-	 * Constructor
-	 */
-	public function __construct()
+	function lang($key, $params = array(), $escape = FALSE)
 	{
-		$this->before_action();
+		$translated = lava_instance()->lang->translate($key, $params);
 
-		self::$instance = $this;
-
-		foreach (loaded_class() as $var => $class)
-		{
-			$this->properties[$var] = load_class($class);
-		}
-
-		$this->call = load_class('invoker', 'kernel');
-		$this->call->initialize();
+		if($escape == TRUE)
+			return html_escape($translated);
+		else
+			return $translated;
 	}
+}
 
-	/**
-     * Called before the controller action.
-     * Used to perform logic that needs to happen before each controller action.
+if ( ! function_exists('language'))
+{
+    /**
+     * Use to select the Language to use
      *
+     * @param  string $lang
+     * @return object
      */
-    public function before_action(){}
-
-	/**
-	 * Instance of controller
-	 *
-	 * @return object
-	 */
-	public static function instance()
+	function language($lang)
 	{
-		return self::$instance;
+		return lava_instance()->lang->language($lang);
 	}
-
 }
 
 ?>

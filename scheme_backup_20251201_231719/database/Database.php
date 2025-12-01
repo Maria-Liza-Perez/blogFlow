@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
 /**
  * ------------------------------------------------------------------
@@ -194,10 +194,10 @@ class Database {
     public function __construct($dbname = NULL)
     {
         if(is_null($dbname)) {
-        $database_config = database_config()['main'];
+        $database_config =& database_config()['main'];
         } else {
             if(isset(database_config()[$dbname])) {
-                $database_config = database_config()[$dbname];
+                $database_config =& database_config()[$dbname];
             } else {
                 throw new PDOException('No active configuration for this database.');
             }
@@ -217,7 +217,12 @@ class Database {
                 $dsn = "mysql:host=$host;dbname=$dbname_value;charset=$charset;port=$port";
                 break;
             case 'pgsql':
-                $dsn = "pgsql:host=$host;port=$port;dbname=$dbname_value;user=$username;password=$password";
+                $sslmode = getenv('PGSSLMODE') ?: 'prefer';
+                $channel_binding = getenv('PGCHANNELBINDING') ?: '';
+                $dsn = "pgsql:host=$host;port=$port;dbname=$dbname_value;sslmode=$sslmode";
+                if (!empty($channel_binding)) {
+                    $dsn .= ";channel_binding=$channel_binding";
+                }
                 break;
             case 'sqlite':
                 if (empty($path)) {
@@ -242,43 +247,20 @@ class Database {
             $this->db = new PDO($dsn, $username, $password, $options);
              $this->driver = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
         } catch (Exception $e) {
-            $error = load_class('Errors', 'kernel');
-            $error->show_database_error(
-                $e->getMessage(),
-                $this->getSQL ?? '',
-                $this->bindValues ?? [],
-                $e
-            );
+            throw new PDOException($e->getMessage());
         }
     }
 
     /**
-     * DB Instance
+     * Get Database Instance
      *
-     * @param string $dbname
-     * @return void
+     * @return instance
      */
     public static function instance($dbname)
     {
         self::$instance = new Database($dbname);
         return self::$instance;
     }
-
-    private function validate_identifier($name)
-    {
-        $name = trim($name);
-
-        if (preg_match('/\w+\s*\(.*\)/', $name)) {
-            return true;
-        }
-
-        if (preg_match('/^[a-zA-Z0-9_\.]+(\s+(as\s+)?[a-zA-Z0-9_]+)?$/i', $name)) {
-            return true;
-        }
-
-        throw new Exception("Invalid SQL identifier: {$name}");
-    }
-
 
     /**
      * Raw Query
@@ -336,7 +318,7 @@ class Database {
                 return $stmt->rowCount();
             }
         } catch (Exception $e) {
-            throw new PDOException($e->getMessage() . 'Query: ' . $this->getSQL . '');
+            throw new PDOException($e->getMessage() . '<div style="background-color:#000;color:#fff;padding:15px">Query: ' . $this->getSQL . '</div>');
         }
     }
 
@@ -370,13 +352,7 @@ class Database {
      */
     public function count()
     {
-        $sql = "SELECT COUNT(*) AS count FROM {$this->table}" . $this->where;
-        $stmt = $this->raw($sql, $this->bindValues);
-        $result = $stmt->fetch();
-
-        $this->resetQuery();
-
-        return $result['count'] ?? 0;
+        return $this->raw("SELECT COUNT(*) AS count FROM {$this->table}" . $this->where)->fetch()['count'];
     }
 
     /**
@@ -392,9 +368,6 @@ class Database {
         }
         
         $columns = array_keys($records[0]);
-        foreach ($columns as $column) {
-            $this->validate_identifier($column);
-        }
         $placeholders = rtrim(str_repeat('(' . rtrim(str_repeat('?, ', count($columns)), ', ') . '), ', count($records)), ', ');
         $this->bindValues = [];
         
@@ -419,16 +392,18 @@ class Database {
             return false;
         }
     
+        // Reset query components
         $this->sql = '';
         $this->bindValues = [];
         $ids = [];
         $updates = [];
     
+        // Get all columns that should be updated (excluding primary key)
         $columns = array_keys($records[0]);
         $columns = array_diff($columns, [$primaryKey]);
     
+        // Build the update statements for each column
         foreach ($columns as $column) {
-            $this->validate_identifier($column);
             $cases = [];
             $params = [];
             
@@ -450,10 +425,12 @@ class Database {
             $this->bindValues = array_merge($this->bindValues, $params);
         }
     
+        // Build the complete SQL query
         $this->sql = "UPDATE {$this->table} SET " . implode(', ', $updates) . 
                     " WHERE $primaryKey IN (" . implode(',', array_fill(0, count($ids), '?')) . ")";
         $this->bindValues = array_merge($this->bindValues, $ids);
     
+        // Execute and return the result
         return $this->exec();
     }
 
@@ -482,7 +459,6 @@ class Database {
         $field_array = [];
 
         foreach ($fields as $column => $field) {
-            $this->validate_identifier($column);
             $values[] = $column . ' = ?';
             $field_array[] = $field;
         }
@@ -508,7 +484,6 @@ class Database {
         $values = '';
         $x = 1;
         foreach ($fields as $field => $value) {
-            $this->validate_identifier($field);
             $values .='?';
             $this->bindValues[] =  $value;
             if ($x < count($fields)) {
@@ -540,7 +515,6 @@ class Database {
      */
     public function table($table_name)
     {
-        $this->validate_identifier(($table_name));
         $this->resetQuery();
         $this->table = $this->dbprefix.$table_name;
         return $this;
@@ -556,7 +530,6 @@ class Database {
     {
         $columns = explode(',', $columns);
         foreach ($columns as $key => $column) {
-            $this->validate_identifier($column);
             $columns[$key] = trim($column);
         }
 
@@ -576,8 +549,6 @@ class Database {
      */
     public function _sql_function($column, $alias = null, $type = 'MAX')
     {
-        $this->validate_identifier($column);
-
         if( ! in_array($type, array('MAX', 'MIN', 'SUM', 'COUNT', 'AVG', 'DISTINCT'))) {
             throw new RuntimeException('Invalid function type: ' . $type);
         }
@@ -789,13 +760,11 @@ class Database {
         if (is_array($where) && ! empty($where)) {
             $_where = [];
             foreach ($where as $column => $data) {
-                $this->validate_identifier($column);
                 $_where[] = $type . $column . ' = ?';
                 $this->bindValues[] = $data;
             }
             $where = implode(' ' . $andOr . ' ', $_where);
         } else {
-            $this->validate_identifier($where);
             if (is_null($where) || empty($where)) {
                 return $this;
             }
@@ -919,7 +888,6 @@ class Database {
      */
     public function like($field, $data, $type = '', $andOr = 'AND')
     {
-        $this->validate_identifier($field);
         $this->bindValues[] = $data;
         $where = $field . ' ' . $type . 'LIKE ?';
 
@@ -981,7 +949,6 @@ class Database {
      */
     public function between($field, $value1, $value2, $type = '', $andOr = 'AND')
     {
-        $this->validate_identifier($field);
         $this->bindValues[] = $value1;
         $this->bindValues[] = $value2;
         $where = '(' . $field . ' ' . $type . 'BETWEEN ?  AND ?)';
@@ -1048,21 +1015,19 @@ class Database {
      */
     public function in($field, array $keys, $type = '', $andOr = 'AND')
     {
-        $this->validate_identifier($field);
-        if (!empty($keys)) {
-            $placeholders = implode(', ', array_fill(0, count($keys), '?'));
-            foreach ($keys as $v) {
-                $this->bindValues[] = $v;
+        if (is_array($keys)) {
+            $_keys = [];
+            foreach ($keys as $k => $v) {
+                $_keys[] = (is_numeric($v) ? $v : '?');
             }
-
-            $where = "$field {$type}IN ($placeholders)";
+            $where = $field . ' ' . $type . 'IN (' . implode(', ', $_keys) . ')';
 
             if ($this->grouped) {
                 $where = '(' . $where;
                 $this->grouped = false;
             }
 
-            $this->where = is_null($this->where)
+            $this->where = (is_null($this->where))
                 ? ' WHERE ' . $where
                 : $this->where . ' ' . $andOr . ' ' . $where;
         }
@@ -1195,7 +1160,6 @@ class Database {
     public function order_by($field_name, $order = null)
     {
         $field_name = trim($field_name);
-        $this->validate_identifier($field_name);
 
         $this->orderBy = ' ORDER BY ';
         if (! is_null($order)) {
@@ -1215,19 +1179,12 @@ class Database {
      * @param  string $groupBy
      * @return object
      */
-    public function group_by($groupBy)
+     public function group_by($groupBy)
     {
         $this->groupBy = ' GROUP BY ';
-
-        if (is_array($groupBy)) {
-            foreach ($groupBy as $column) {
-                $this->validate_identifier($column);
-            }
-            $this->groupBy .= implode(', ', $groupBy);
-        } else {
-            $this->validate_identifier($groupBy);
-            $this->groupBy .= $groupBy;
-        }
+        $this->groupBy .= (is_array($groupBy))
+            ? implode(', ', $groupBy)
+            : $groupBy;
 
         return $this;
     }
@@ -1242,7 +1199,6 @@ class Database {
      */
     public function having($field, $op = null, $val = null)
     {
-        $this->validate_identifier($field);
         $this->having = ' HAVING ';
         if (is_array($op)) {
             $fields = explode('?', $field);
@@ -1323,14 +1279,8 @@ class Database {
             $stmt->execute($this->bindValues);
             $this->rowCount = $stmt->rowCount();
             return $stmt->fetch($mode);
-        } catch (Exception $e) {
-            $error = load_class('Errors', 'kernel');
-            $error->show_database_error(
-                $e->getMessage(),
-                $this->getSQL ?? '',
-                $this->bindValues ?? [],
-                $e
-            );
+        } catch(Exception $e) {
+            throw new PDOException($e->getMessage().'<div style="background-color:#000;color:#fff;padding:15px">Query: '.$this->getSQL.'</div>');
         }
     }
 
@@ -1348,14 +1298,8 @@ class Database {
             $stmt->execute($this->bindValues);
             $this->rowCount = $stmt->rowCount();
             return $stmt->fetchAll($mode);
-        } catch (Exception $e) {
-            $error = load_class('Errors', 'kernel');
-            $error->show_database_error(
-                $e->getMessage(),
-                $this->getSQL ?? '',
-                $this->bindValues ?? [],
-                $e
-            );
+        } catch(Exception $e) {
+            throw new PDOException($e->getMessage().'<div style="background-color:#000;color:#fff;padding:15px">Query: '.$this->getSQL.'</div>');
         }
     }
 
@@ -1377,38 +1321,6 @@ class Database {
     public function row_count()
     {
         return $this->rowCount;
-    }
-
-    /**
-     * Increment column value
-     *
-     * @param string $column
-     * @param integer $amount
-     * @return void
-     */
-    public function increment($column, $amount = 1)
-    {
-        $this->validate_identifier($column);
-        $this->sql = "UPDATE {$this->table} SET {$column} = {$column} + ?";
-        $this->bindValues = array_merge([$amount], $this->bindValues);
-
-        return $this->exec();
-    }
-
-    /**
-     * Decrement column value
-     *
-     * @param string $column
-     * @param integer $amount
-     * @return void
-     */
-    public function decrement($column, $amount = 1)
-    {
-        $this->validate_identifier($column);
-        $this->sql = "UPDATE {$this->table} SET {$column} = {$column} - ?";
-        $this->bindValues = array_merge([$amount], $this->bindValues);
-
-        return $this->exec();
     }
 
     /**
@@ -1463,3 +1375,4 @@ class Database {
         $this->db = null;
     }
 }
+
