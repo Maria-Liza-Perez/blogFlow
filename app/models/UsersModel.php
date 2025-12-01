@@ -66,9 +66,9 @@ class UsersModel extends Model {
 
     public function get_logged_in_user()
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        session_start();
+    }
 
         if (isset($_SESSION['user']['id'])) {
             return $this->get_user_by_id($_SESSION['user']['id']);
