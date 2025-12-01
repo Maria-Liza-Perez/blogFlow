@@ -36,6 +36,9 @@ defined('PREVENT_DIRECT_ACCESS') OR exit('No direct script access allowed');
  */
 ?>
 <?php
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
 function get_code_excerpt($file, $errorLine, $padding = 5) {
     if (!is_readable($file)) return [[], 0];
     $lines = file($file);
@@ -197,7 +200,7 @@ list($codeExcerpt, $excerptStart) = get_code_excerpt($exception->getFile(), $exc
 </head>
 <body>
 <div class="container">
-    <div class="title">⚠️ Whoops! Something went wrong.</div>
+    <div class="title">Whoops! Something went wrong.</div>
 
     <div class="section">
         <span class="label">Exception</span>
@@ -288,8 +291,8 @@ list($codeExcerpt, $excerptStart) = get_code_excerpt($exception->getFile(), $exc
     <div class="section">
         <h3>Tips</h3>
         <div class="code">
-            This error page is shown because debug mode is enabled.<br>
-            In production, set <code>$config['ENVIRONMENT'] = 'production'</code> in your configuration to hide detailed error output.
+                            This error page is shown because debug mode is enabled.<br>
+            In production, set <code>$config['ENVIRONMENT'] = 'production'</code> to hide detailed error output.
         </div>
     </div>
 

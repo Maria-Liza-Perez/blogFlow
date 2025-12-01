@@ -153,45 +153,31 @@ class Session {
 			$this->config['cookie_name'] = $this->config['sess_cookie_name'] ?? ini_get('session.name');
 		}
 
-
-		// Only set session name if not started and headers not sent
-		if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-			ini_set('session.name', $this->config['cookie_name']);
-		}
+		ini_set('session.name', $this->config['cookie_name']);
 
 		// Setup expiration times
 		$this->config['sess_expiration'] = (int)($this->config['sess_expiration'] ?? ini_get('session.gc_maxlifetime'));
-		if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-			ini_set('session.gc_maxlifetime', $this->config['sess_expiration']);
-		}
+		ini_set('session.gc_maxlifetime', $this->config['sess_expiration']);
 
 		$this->config['cookie_expiration'] = isset($this->config['cookie_expiration'])
 			? (int)$this->config['cookie_expiration']
 			: (($this->config['sess_expire_on_close'] ?? FALSE) ? 0 : (int)$this->config['sess_expiration']);
 
-
-		// Only set cookie params if session not started and headers not sent
-		if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-			session_set_cookie_params([
-				'lifetime' => $this->config['cookie_expiration'],
-				'path'     => $this->config['cookie_path'] ?? '/',
-				'domain'   => $this->config['cookie_domain'] ?? '',
-				'secure'   => $this->config['cookie_secure'] ?? FALSE,
-				'httponly' => TRUE,
-				'samesite' => $this->config['cookie_samesite'] ?? 'Lax'
-			]);
-		}
+		session_set_cookie_params([
+			'lifetime' => $this->config['cookie_expiration'],
+			'path'     => $this->config['cookie_path'] ?? '/',
+			'domain'   => $this->config['cookie_domain'] ?? '',
+			'secure'   => $this->config['cookie_secure'] ?? FALSE,
+			'httponly' => TRUE,
+			'samesite' => $this->config['cookie_samesite'] ?? 'Lax'
+		]);
 
 		// Basic PHP session configuration
-
-		// Session configuration - only set if not started and headers not sent
-		if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-			ini_set('session.use_trans_sid', 0);
-			ini_set('session.use_strict_mode', 1);
-			ini_set('session.use_cookies', 1);
-			ini_set('session.use_only_cookies', 1);
-			ini_set('session.sid_length', $this->_get_sid_length());
-		}
+		ini_set('session.use_trans_sid', 0);
+		ini_set('session.use_strict_mode', 1);
+		ini_set('session.use_cookies', 1);
+		ini_set('session.use_only_cookies', 1);
+		ini_set('session.sid_length', $this->_get_sid_length());
 
 		/**
 		 * ----------------------------------------------------------------
@@ -210,11 +196,7 @@ class Session {
 		 * ----------------------------------------------------------------
 		 */
 		$existing_session = isset($_COOKIE[$this->config['cookie_name']]) && !empty($_COOKIE[$this->config['cookie_name']]);
-
-		// Start session only if not already started and headers not sent
-		if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-			session_start();
-		}
+		session_start();
 
 		/**
 		 * ----------------------------------------------------------------
