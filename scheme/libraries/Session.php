@@ -210,7 +210,11 @@ class Session {
 		 * ----------------------------------------------------------------
 		 */
 		$existing_session = isset($_COOKIE[$this->config['cookie_name']]) && !empty($_COOKIE[$this->config['cookie_name']]);
-		session_start();
+
+		// Start session only if not already started and headers not sent
+		if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+			session_start();
+		}
 
 		/**
 		 * ----------------------------------------------------------------
