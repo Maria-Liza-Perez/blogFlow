@@ -169,14 +169,18 @@ class Session {
 			? (int)$this->config['cookie_expiration']
 			: (($this->config['sess_expire_on_close'] ?? FALSE) ? 0 : (int)$this->config['sess_expiration']);
 
-		session_set_cookie_params([
-			'lifetime' => $this->config['cookie_expiration'],
-			'path'     => $this->config['cookie_path'] ?? '/',
-			'domain'   => $this->config['cookie_domain'] ?? '',
-			'secure'   => $this->config['cookie_secure'] ?? FALSE,
-			'httponly' => TRUE,
-			'samesite' => $this->config['cookie_samesite'] ?? 'Lax'
-		]);
+
+		// Only set cookie params if session not started and headers not sent
+		if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+			session_set_cookie_params([
+				'lifetime' => $this->config['cookie_expiration'],
+				'path'     => $this->config['cookie_path'] ?? '/',
+				'domain'   => $this->config['cookie_domain'] ?? '',
+				'secure'   => $this->config['cookie_secure'] ?? FALSE,
+				'httponly' => TRUE,
+				'samesite' => $this->config['cookie_samesite'] ?? 'Lax'
+			]);
+		}
 
 		// Basic PHP session configuration
 
